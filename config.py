@@ -8,9 +8,6 @@ else:
     load_dotenv()
 token = os.getenv('BOT_TOKEN')
 base_url = os.getenv('BASE_URL')
-redis_host = os.getenv('REDIS_HOST', 'localhost')
-port = int(os.getenv('REDIS_PORT', 6379))
-password=os.getenv('REDIS_PASSWORD')
 cities_coords = {
     "москва": (55.7558, 37.6176),
     "санкт-петербург": (59.9343, 30.3351),
