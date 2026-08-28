@@ -17,11 +17,17 @@ class StatesSetup(StatesGroup):
     confirm_reset = State()
 
 def get_ids(message: Message):
+    """
+    Получаем id пользователя и чата из сообщения
+    :param message: сообщение пользователя
+    :return: id пользователя, id чата
+    """
     user_id = message.from_user.id
     chat_id = message.chat.id
     return user_id, chat_id
 
 def gen_cities_markup():
+    return
 
 
 @bot.message_handler(commands=['start'])
@@ -50,7 +56,9 @@ def input_name(message: Message):
                   state=StatesSetup.awaiting_city,
                   chat_id=chat_id)
     log_state(bot_logger, user_id, bot.get_state(user_id=user_id, chat_id=chat_id))
-    bot.send_message(f'Отлично, {name}! С именем определились, теперь выбери свой город.')
+    bot.send_message(chat_id=chat_id,
+                     text=f'Отлично, {name}! С именем определились, теперь выбери свой город:',
+                     reply_markup=gen_cities_markup())
 
 
 

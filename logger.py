@@ -3,6 +3,13 @@ import sys
 from logging.handlers import RotatingFileHandler
 
 def log_state(logger, user_id, state):
+    """
+    Логируем состояние бота
+    :param logger: логгер
+    :param user_id: id пользователя, для которого установлено состояние
+    :param state: установленное состояние бота
+    :return: None
+    """
     logger.info(f'Пользователь {user_id}. Установлено состояние {state}')
 
 
