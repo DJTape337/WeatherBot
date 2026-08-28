@@ -96,6 +96,5 @@ def create_request(user_id, city, lat, lon):
         text = f'Error while creating weather request in table. {e}'
         log_error(bot_logger, user_id, text)
         return
-def get_user_requests(user_id, limit=5):
 
 
