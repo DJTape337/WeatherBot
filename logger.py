@@ -12,6 +12,9 @@ def log_state(logger, user_id, state):
     """
     logger.info(f'Пользователь {user_id}. Установлено состояние {state}')
 
+def log_error(logger, user_id, e):
+    logger.error(f'Пользователь {user_id}. Ошибка: {e}')
+
 
 def setup_logger(name='bot', level=logging.DEBUG, log_file='bot.log'):
     logger = logging.getLogger(name)

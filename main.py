@@ -5,6 +5,7 @@ import config
 from telebot.states.sync.middleware import StateMiddleware
 from telebot.states import State, StatesGroup
 from logger import bot_logger, log_state
+from dbase import create_model
 
 state_storage = StateMemoryStorage()
 bot = TeleBot(config.token, state_storage=state_storage, use_class_middlewares=True)
@@ -64,4 +65,5 @@ def input_name(message: Message):
 
 
 if __name__ == '__main__':
+    create_model()
     bot.infinity_polling()
