@@ -2,6 +2,10 @@ import logging
 import sys
 from logging.handlers import RotatingFileHandler
 
+def log_state(logger, user_id, state):
+    logger.info(f'Пользователь {user_id}. Установлено состояние {state}')
+
+
 def setup_logger(name='bot', level=logging.DEBUG, log_file='bot.log'):
     logger = logging.getLogger(name)
     if logger.hasHandlers():
@@ -15,7 +19,7 @@ def setup_logger(name='bot', level=logging.DEBUG, log_file='bot.log'):
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    fh = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
+    fh = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5, encoding='utf-8')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
