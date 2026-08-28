@@ -1,6 +1,8 @@
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
+from sys import exc_info
+
 
 def log_state(logger, user_id, state):
     """
@@ -10,10 +12,13 @@ def log_state(logger, user_id, state):
     :param state: установленное состояние бота
     :return: None
     """
-    logger.info(f'Пользователь {user_id}. Установлено состояние {state}')
+    logger.info(f'Пользователь {user_id}. Установлено состояние {state}', extra={'user_id': user_id})
 
 def log_error(logger, user_id, e):
-    logger.error(f'Пользователь {user_id}. Ошибка: {e}')
+    logger.error(f'Пользователь {user_id}. Ошибка: {e}',
+                 extra={'user_id': user_id},
+                 exc_info=True
+                 )
 
 
 def setup_logger(name='bot', level=logging.DEBUG, log_file='bot.log'):

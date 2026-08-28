@@ -42,7 +42,8 @@ def create_user(user_id, database=db, username=None, city=None, latitude=None, l
             longitude = longitude
         )
     except Exception as e:
-        log_error(bot_logger, user_id, e)
+        text = f'Error while creating user. {e}'
+        log_error(bot_logger, user_id, text)
 
 def update_user_data(user_id: int, datatype: str, data):
     try:
@@ -55,14 +56,15 @@ def update_user_data(user_id: int, datatype: str, data):
             'lon': user.longitude
         }
         if datatype == 'user_id':
-            raise UnchangableFieldError('Error while updating user data. That field is unchangable.')
+            raise UnchangableFieldError('That field is unchangable.')
         elif datatype not in fields.keys():
-            raise FieldNotFoundError('Error while updating user data. That field does not exist.')
+            raise FieldNotFoundError('That field does not exist.')
         changing_field = fields[datatype]
         changing_field = data
         user.save()
     except Exception as e:
-        log_error(bot_logger, user_id, e)
+        text = f'Error while updating user data. {e}'
+        log_error(bot_logger, user_id, text)
         return
 
 def get_user_data(user_id: int, datatype: str):
@@ -75,13 +77,25 @@ def get_user_data(user_id: int, datatype: str):
             'lon': user.longitude
         }
         if datatype not in fields.keys():
-            raise FieldNotFoundError('Error while getting user data. That field does not exist.')
+            raise FieldNotFoundError('That field does not exist.')
         out = fields[datatype]
         return out
-    except User.DoesNotExist as e:
-        log_error(bot_logger, user_id, e)
-        return
+    except Exception as e:
+        text = f'Error while getting user data. {e}'
 
-def
+def create_request(user_id, city, lat, lon):
+    try:
+        user = User.get(User.user_id == user_id)
+        WeatherRequest.create(
+            user = user,
+            city = city,
+            latitude = lat,
+            longitude = lon
+        )
+    except Exception as e:
+        text = f'Error while creating weather request in table. {e}'
+        log_error(bot_logger, user_id, text)
+        return
+def get_user_requests(user_id, limit=5):
 
 
