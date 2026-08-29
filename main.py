@@ -4,8 +4,8 @@ from telebot.storage import StateMemoryStorage
 import config
 from telebot.states.sync.middleware import StateMiddleware
 from telebot.states import State, StatesGroup
-from logger import bot_logger, log_state
-from dbase import create_model
+from logger import bot_logger, log_state, log_info
+from dbase import create_model, create_user, create_request, update_user_data, get_user_data
 
 state_storage = StateMemoryStorage()
 bot = TeleBot(config.token, state_storage=state_storage, use_class_middlewares=True)
@@ -34,7 +34,7 @@ def gen_cities_markup():
 @bot.message_handler(commands=['start'])
 def send_welcome(message: Message):
     user_id, chat_id = get_ids(message)
-    bot_logger.info(f'Пользователь {message.from_user.id}. Бот запущен')
+    log_info(bot_logger, user_id, 'Бот запущен.')
     bot.send_message(chat_id=chat_id, text='Привет. Я - бот, предназначенный'
                                                    ' для получения погодных сводок в твоём городе.\n'
                                                    'Я могу присылать сводку о погоде в твоём городе, '
@@ -44,6 +44,9 @@ def send_welcome(message: Message):
                   state=StatesSetup.awaiting_name,
                   chat_id=chat_id)
     log_state(bot_logger, user_id, bot.get_state(user_id=user_id, chat_id=chat_id))
+    create_user(user_id)
+    bot_logger.info(bot_logger, user_id, 'Создана запись о пользователе.')
+
 
 @bot.message_handler(state=StatesSetup.awaiting_name, content_types=['text'])
 def input_name(message: Message):
@@ -52,7 +55,7 @@ def input_name(message: Message):
     bot.add_data(user_id=user_id,
                  chat_id=chat_id,
                  name=name)
-    bot_logger.info(f'Пользователь {user_id}. Установлено имя')
+    log_info(bot_logger, user_id, 'Установлено имя.')
     bot.set_state(user_id=user_id,
                   state=StatesSetup.awaiting_city,
                   chat_id=chat_id)
@@ -60,9 +63,6 @@ def input_name(message: Message):
     bot.send_message(chat_id=chat_id,
                      text=f'Отлично, {name}! С именем определились, теперь выбери свой город:',
                      reply_markup=gen_cities_markup())
-
-
-
 
 if __name__ == '__main__':
     create_model()

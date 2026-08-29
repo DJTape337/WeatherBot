@@ -1,4 +1,6 @@
 from peewee import SqliteDatabase, Model, IntegerField, CharField, ForeignKeyField, FloatField, DateTimeField
+from scipy.conftest import default
+
 from config import db_url
 import datetime
 from logger import bot_logger, log_error
@@ -27,20 +29,23 @@ class WeatherRequest(BaseModel):
     city = CharField()
     latitude = FloatField()
     longitude = FloatField()
-    requested_at = DateTimeField(default=datetime.datetime.now)
+    requested_at = DateTimeField(default=lambda: datetime.datetime.now)
 
 def create_model():
-    db.create_tables(BaseModel.__subclasses__())
+    db.create_tables([User, WeatherRequest], safe=True)
 
 def create_user(user_id, database=db, username=None, city=None, latitude=None, longitude=None):
     try:
         user, created = User.get_or_create(
             user_id = user_id,
-            username = username,
-            city = city,
-            latitude = latitude,
-            longitude = longitude
+            defaults={
+                'username': username,
+                'city': city,
+                'latitude': latitude,
+                'longitude': longitude
+            }
         )
+        return user, created
     except Exception as e:
         text = f'Error while creating user. {e}'
         log_error(bot_logger, user_id, text)
@@ -48,20 +53,18 @@ def create_user(user_id, database=db, username=None, city=None, latitude=None, l
 def update_user_data(user_id: int, datatype: str, data):
     try:
         datatype = datatype.lower()
-        user = User.get(User.user_id == user_id)
-        fields = {
-            'username': user.username,
-            'city': user.city,
-            'lat': user.latitude,
-            'lon': user.longitude
-        }
-        if datatype == 'user_id':
-            raise UnchangableFieldError('That field is unchangable.')
-        elif datatype not in fields.keys():
+        fields = ['username', 'city', 'latitude', 'longitude']
+        if not datatype in fields:
             raise FieldNotFoundError('That field does not exist.')
-        changing_field = fields[datatype]
-        changing_field = data
-        user.save()
+        query = User.update(**{datatype: data}).where(User.user_id == user_id)
+        rows_updated = query.execute()
+        if rows_updated == 0:
+            raise User.DoesNotExist('User does not exist.')
+        return rows_updated
+    except User.DoesNotExist:
+        text = f'Error while updating user data. User does not exist.'
+        log_error(bot_logger, user_id, text)
+        return
     except Exception as e:
         text = f'Error while updating user data. {e}'
         log_error(bot_logger, user_id, text)
@@ -70,16 +73,10 @@ def update_user_data(user_id: int, datatype: str, data):
 def get_user_data(user_id: int, datatype: str):
     try:
         user = User.get(User.user_id == user_id)
-        fields = {
-            'username': user.username,
-            'city': user.city,
-            'lat': user.latitude,
-            'lon': user.longitude
-        }
-        if datatype not in fields.keys():
+        fields = ['username', 'city', 'lat', 'lon']
+        if datatype not in fields:
             raise FieldNotFoundError('That field does not exist.')
-        out = fields[datatype]
-        return out
+        return getattr(user, datatype)
     except Exception as e:
         text = f'Error while getting user data. {e}'
 
