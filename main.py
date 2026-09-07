@@ -1,5 +1,5 @@
 from telebot import TeleBot, custom_filters
-from telebot.types import Message
+from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from telebot.storage import StateMemoryStorage
 import config
 from telebot.states.sync.middleware import StateMiddleware
@@ -15,6 +15,7 @@ bot.setup_middleware(StateMiddleware(bot))
 class StatesSetup(StatesGroup):
     awaiting_name = State()
     awaiting_city = State()
+    user_ready = State()
     confirm_reset = State()
 
 def get_ids(message: Message):
@@ -28,7 +29,11 @@ def get_ids(message: Message):
     return user_id, chat_id
 
 def gen_cities_markup():
-    return
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    for key in config.cities_coords.keys():
+        city = key[0].upper() + key[1:]
+        markup.add(KeyboardButton(text=key))
+    return markup
 
 
 @bot.message_handler(commands=['start'])
@@ -43,9 +48,9 @@ def send_welcome(message: Message):
     bot.set_state(user_id=user_id,
                   state=StatesSetup.awaiting_name,
                   chat_id=chat_id)
-    log_state(bot_logger, user_id, bot.get_state(user_id=user_id, chat_id=chat_id))
+    log_state(bot_logger, user_id, 'awaiting_name')
     create_user(user_id)
-    bot_logger.info(bot_logger, user_id, 'Создана запись о пользователе.')
+    log_info(bot_logger, user_id, 'Создана запись о пользователе.')
 
 
 @bot.message_handler(state=StatesSetup.awaiting_name, content_types=['text'])
@@ -59,10 +64,40 @@ def input_name(message: Message):
     bot.set_state(user_id=user_id,
                   state=StatesSetup.awaiting_city,
                   chat_id=chat_id)
-    log_state(bot_logger, user_id, bot.get_state(user_id=user_id, chat_id=chat_id))
-    bot.send_message(chat_id=chat_id,
-                     text=f'Отлично, {name}! С именем определились, теперь выбери свой город:',
+    log_state(bot_logger, user_id, 'awaiting_city')
+    msg = bot.send_message(chat_id=chat_id,
+                     text=f'Отлично, {name[0].upper() + name[1:]}! '
+                          f'С именем определились, теперь выбери свой город:',
                      reply_markup=gen_cities_markup())
+
+@bot.message_handler(state=StatesSetup.awaiting_city)
+def input_city(message: Message):
+    user_id, chat_id = get_ids(message)
+    city = message.text.lower()
+    if not city in config.cities_coords.keys():
+        bot.send_message('К сожалению, данного города пока нет в нашей'
+                         'базе данных. Пожалуйста, выбери город из списка.')
+        return
+    else:
+        update_user_data(user_id = user_id,
+                         datatype='city',
+                         data = city)
+        log_info(bot_logger, user_id, f'Установлен город: {city}')
+        lat, lon = config.cities_coords[city]
+        bot.add_data(user_id=user_id,
+                     chat_id=chat_id,
+                     lat=lat,
+                     lon=lon)
+        bot.set_state(user_id=user_id,
+                      chat_id=chat_id,
+                      state=StatesSetup.user_ready)
+        log_state(bot_logger, user_id, 'user_ready')
+
+@bot.message_handler(state=StatesSetup.awaiting_name)
+def wrong_name(message: Message):
+    user_id, chat_id = get_ids(message)
+    bot.send_message(chat_id=chat_id,
+                     text='Кажется, ты отправил не текст. Пожалуйста, отправь своё имя в виде текста.')
 
 if __name__ == '__main__':
     create_model()

@@ -1,6 +1,6 @@
-from peewee import SqliteDatabase, Model, IntegerField, CharField, ForeignKeyField, FloatField, DateTimeField
-from scipy.conftest import default
-
+from peewee import (SqliteDatabase, Model, IntegerField,
+                    CharField, ForeignKeyField,
+                    FloatField, DateTimeField)
 from config import db_url
 import datetime
 from logger import bot_logger, log_error
@@ -18,6 +18,7 @@ class BaseModel(Model):
         database = db
 
 class User(BaseModel):
+    register_date = DateTimeField(default=lambda: datetime.datetime.now)
     user_id = IntegerField(primary_key=True)
     username = CharField(null=True)
     city = CharField(null=True)
