@@ -30,11 +30,22 @@ def get_ids(message: Message):
 
 def gen_cities_markup():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    half = len(config.cities_coords) // 2
     row = []
-    indexes =
-    for key in list(config.cities_coords.keys())[:half]:
-        city = key[0].upper() + key[1:]
+    i1, i2 = 0, 1
+    keys_list = list(config.cities_coords.keys())
+    for _ in range((len(keys_list) // 2) + 1):
+        try:
+            city1 = keys_list[i1][0].upper() + keys_list[i1][1:]
+            city2 = keys_list[i2][0].upper() + keys_list[i2][1:]
+            markup.row(city1, city2)
+            i1 += 2
+            i2 += 2
+        except IndexError:
+            if city1 and not city2:
+                markup.row(city1)
+            elif city1 and city2:
+                markup.row(city1, city2)
+            break
     return markup
 
 
