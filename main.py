@@ -30,9 +30,11 @@ def get_ids(message: Message):
 
 def gen_cities_markup():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    for key in config.cities_coords.keys():
+    half = len(config.cities_coords) // 2
+    row = []
+    indexes =
+    for key in list(config.cities_coords.keys())[:half]:
         city = key[0].upper() + key[1:]
-        markup.add(KeyboardButton(text=key))
     return markup
 
 
@@ -75,8 +77,8 @@ def input_city(message: Message):
     user_id, chat_id = get_ids(message)
     city = message.text.lower()
     if not city in config.cities_coords.keys():
-        bot.send_message('К сожалению, данного города пока нет в нашей'
-                         'базе данных. Пожалуйста, выбери город из списка.')
+        bot.send_message(chat_id, 'К сожалению, данного города пока нет в нашей'
+                         ' базе данных. Пожалуйста, выбери город из списка.')
         return
     else:
         update_user_data(user_id = user_id,
@@ -93,11 +95,37 @@ def input_city(message: Message):
                       state=StatesSetup.user_ready)
         log_state(bot_logger, user_id, 'user_ready')
 
-@bot.message_handler(state=StatesSetup.awaiting_name)
+@bot.message_handler(state=StatesSetup.awaiting_name,
+                     content_types=[
+    "text",
+    "audio",
+    "document",
+    "photo",
+    "sticker",
+    "video",
+    "video_note",
+    "voice",
+    "location",
+    "contact",
+    "new_chat_members",
+    "left_chat_member",
+    "new_chat_title",
+    "new_chat_photo",
+    "delete_chat_photo",
+    "group_chat_created",
+    "supergroup_chat_created",
+    "channel_chat_created",
+    "migrate_to_chat_id",
+    "migrate_from_chat_id",
+    "pinned_message"
+])
+
 def wrong_name(message: Message):
     user_id, chat_id = get_ids(message)
     bot.send_message(chat_id=chat_id,
-                     text='Кажется, ты отправил не текст. Пожалуйста, отправь своё имя в виде текста.')
+                     text='Кажется, ты отправил не текст. '
+                          'Пожалуйста, отправь своё имя в виде текста.')
+
 
 if __name__ == '__main__':
     create_model()

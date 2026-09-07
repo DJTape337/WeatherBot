@@ -18,7 +18,7 @@ class BaseModel(Model):
         database = db
 
 class User(BaseModel):
-    register_date = DateTimeField(default=lambda: datetime.datetime.now)
+    register_date = DateTimeField(default=datetime.datetime.now)
     user_id = IntegerField(primary_key=True)
     username = CharField(null=True)
     city = CharField(null=True)
@@ -80,6 +80,8 @@ def get_user_data(user_id: int, datatype: str):
         return getattr(user, datatype)
     except Exception as e:
         text = f'Error while getting user data. {e}'
+        log_error(bot_logger, user_id, text)
+        return
 
 def create_request(user_id, city, lat, lon):
     try:
