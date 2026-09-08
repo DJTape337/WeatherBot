@@ -7,7 +7,7 @@ if not find_dotenv():
 else:
     load_dotenv()
 token = os.getenv('BOT_TOKEN')
-base_url = os.getenv('BASE_URL')
+base_url = os.getenv('BASE_API_URL')
 db_url = os.getenv('DATABASE_URL')
 cities_coords = {
     "москва": (55.7558, 37.6176),

@@ -67,6 +67,8 @@ def input_name(message: Message):
                   state=StatesSetup.awaiting_city,
                   chat_id=chat_id)
     log_state(bot_logger, user_id, 'awaiting_city')
+    update_user_data(user_id=user_id, datatype='username', data=name)
+    log_info(bot_logger, user_id=user_id, info='Обновлено имя в базе данных.')
     msg = bot.send_message(chat_id=chat_id,
                      text=f'Отлично, {name[0].upper() + name[1:]}! '
                           f'С именем определились, теперь выбери свой город:',
