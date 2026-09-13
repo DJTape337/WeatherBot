@@ -5,7 +5,7 @@ from config import base_url
 def get_forecast(user_id,
                  latitude,
                  longitude,
-                 moment='daily',
+                 moment='current_weather',
                  timezone='auto'):
     values = 'temperature_2m,wind_speed_10m, precipitation_sum'
     params = {
@@ -15,7 +15,7 @@ def get_forecast(user_id,
         'timezone': timezone
     }
     try:
-        if moment == 'current':
+        if moment == 'current_weather':
             params['current_weather'] = True
         elif moment == 'hourly':
             params['hourly'] = values
