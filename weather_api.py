@@ -2,6 +2,10 @@ import requests
 from logger import bot_logger, log_error, log_info
 from config import base_url
 
+def transform_date(date: str):
+    out = date[-2:] + '-' + date[:2]
+    return out
+
 def get_forecast(user_id, lat, lon):
     params = {
         "latitude": lat,  # Ростов-на-Дону
@@ -31,7 +35,7 @@ def get_forecast(user_id, lat, lon):
     daily_data = data['daily']
     daily_out = []
     for i in range(7):
-        daily_out.append(tuple([daily_data['time'][i][-5:],
+        daily_out.append(tuple([transform_date(daily_data['time'][i][-5:]),
                                daily_data['temperature_2m_min'][i],
                                daily_data['temperature_2m_min'][i],
                                daily_data['temperature_2m_max'][i],
@@ -51,4 +55,4 @@ def get_forecast(user_id, lat, lon):
     return output
 
 # print(get_forecast(1, 55.7558, 37.6176,))
-get_forecast(1, 55.7558, 37.6176)
+print(get_forecast(1, 55.7558, 37.6176))

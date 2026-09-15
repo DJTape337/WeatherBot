@@ -1,5 +1,6 @@
 from telebot import TeleBot, custom_filters
-from telebot.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from telebot.types import (Message, ReplyKeyboardMarkup, InlineKeyboardMarkup,
+                           KeyboardButton, InlineKeyboardButton)
 from telebot.storage import StateMemoryStorage
 import config
 from telebot.states.sync.middleware import StateMiddleware
@@ -27,6 +28,16 @@ def get_ids(message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
     return user_id, chat_id
+
+def gen_menu_markup():
+    markup = InlineKeyboardMarkup()
+    btn_onetime_forecast = InlineKeyboardButton('Прогноз', callback_data='onetime')
+    btn_cfg_autoforecast = InlineKeyboardButton('Настроить автоматический прогноз',
+                                                callback_data='cfg_auto')
+    btn_help = InlineKeyboardButton('Поддержка', callback_data='help')
+    markup.row(btn_onetime_forecast)
+    markup.row(btn_cfg_autoforecast)
+    markup.row(btn_help)
 
 def gen_cities_markup():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
@@ -96,6 +107,19 @@ def input_city(message: Message):
                       chat_id=chat_id,
                       state=StatesSetup.user_ready)
         log_state(bot_logger, user_id, 'user_ready')
+        msg = bot.send_message(chat_id, text=f'Отлично, бот готов к работе!')
+        bot.register_next_step_handler(msg, send_menu)
+def send_menu(message: Message):
+    user_id, chat_id = get_ids(message)
+    with bot.retrieve_data(chat_id=chat_id, user_id=user_id) as data:
+        name = data.get('name')
+    bot.send_message(chat_id,
+                     f'Привет, {name}! '
+                     f'Я - бот, который поможет тебе узнать прогноз погоды'
+                     f' на неделю, а так же автоматически присылать прогноз'
+                     f'погоды каждый день в установленное тобой время.'
+                     f' Если у тебя возникли проблемы с ботом, нажми  кнопку "поддержка"',
+                     reply_markup=gen_menu_markup())
 
 @bot.message_handler(state=StatesSetup.awaiting_name,
                      content_types=[
@@ -127,6 +151,8 @@ def wrong_name(message: Message):
     bot.send_message(chat_id=chat_id,
                      text='Кажется, ты отправил не текст. '
                           'Пожалуйста, отправь своё имя в виде текста.')
+
+
 
 
 if __name__ == '__main__':
