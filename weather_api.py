@@ -37,7 +37,6 @@ def get_forecast(user_id, lat, lon):
     for i in range(7):
         daily_out.append(tuple([transform_date(daily_data['time'][i][-5:]),
                                daily_data['temperature_2m_min'][i],
-                               daily_data['temperature_2m_min'][i],
                                daily_data['temperature_2m_max'][i],
                                daily_data['wind_speed_10m_min'][i],
                                daily_data['wind_speed_10m_max'][i],

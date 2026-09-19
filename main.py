@@ -215,6 +215,19 @@ def onetime_forecast(chat_id, user_id, lat, lon):
         case x if x > 10:
             cur_text += 'Сильные осадки! Будьте осторожны.'
     bot.send_message(chat_id=chat_id, text=cur_text)
+    daily_text = 'Прогноз погоды на 7 дней:\n'
+    for day in forecast['daily']:
+        text = (f'{day[0]}:\n'
+                f'Минимальная температура: {day[1]} градусов\n'
+                f'Максимальная температура: {day[2]} градусов\n'
+                f'Минимальная скорость ветра: {day[3]} м\\с\n'
+                f'Максимальная скорость ветра: {day[4]} м\\с\n'
+                f'Предполагаемая сумма осадков: {day[5]} мм\n\n')
+        daily_text += text
+    markup = ReplyKeyboardMarkup(resize_keyboard= True, one_time_keyboard= True)
+    menu_but = KeyboardButton('Меню')
+    markup.add(menu_but)
+    bot.send_message(chat_id, daily_text, reply_markup=markup)
 
 
 
