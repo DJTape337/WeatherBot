@@ -29,7 +29,7 @@ def get_forecast(user_id, lat, lon):
         log_error(bot_logger, user_id, e)
         return 'StatusError'
     else:
-        log_info(bot_logger, user_id, f'Запрос к серверу. Статус {response.status_code}')
+        log_info(bot_logger, user_id, f'Запрос к API. Статус {response.status_code}')
     data = response.json()
     cur_data = data['current']
     daily_data = data['daily']
@@ -53,6 +53,3 @@ def get_forecast(user_id, lat, lon):
         'daily': daily_out
     }
     return output
-
-# print(get_forecast(1, 55.7558, 37.6176,))
-print(get_forecast(1, 55.7558, 37.6176))

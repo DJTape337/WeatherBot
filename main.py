@@ -7,6 +7,7 @@ from telebot.states.sync.middleware import StateMiddleware
 from telebot.states import State, StatesGroup
 from logger import bot_logger, log_state, log_info
 from dbase import create_model, create_user, create_request, update_user_data, get_user_data
+from weather_api import get_forecast
 
 state_storage = StateMemoryStorage()
 bot = TeleBot(config.token, state_storage=state_storage, use_class_middlewares=True)
@@ -18,6 +19,19 @@ class StatesSetup(StatesGroup):
     awaiting_city = State()
     user_ready = State()
     confirm_reset = State()
+
+def get_data(*args, chat_id, user_id):
+    if len(args) > 1:
+        out = tuple()
+        with bot.retrieve_data(chat_id=chat_id, user_id=user_id) as data:
+            for arg in args:
+                d = data.get(arg)
+                out += tuple(d)
+        return out
+    else:
+        with bot.retrieve_data(chat_id=chat_id, user_id=user_id) as data:
+            out = data.get(args[0])
+            return out
 
 def get_ids(message: Message):
     """
@@ -35,9 +49,12 @@ def gen_menu_markup():
     btn_cfg_autoforecast = InlineKeyboardButton('Настроить автоматический прогноз',
                                                 callback_data='cfg_auto')
     btn_help = InlineKeyboardButton('Поддержка', callback_data='help')
+    btn_reset = InlineKeyboardButton('Сбросить данные пользователя', callback_data='reset')
     markup.row(btn_onetime_forecast)
     markup.row(btn_cfg_autoforecast)
     markup.row(btn_help)
+    markup.row(btn_reset)
+    return markup
 
 def gen_cities_markup():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
@@ -111,8 +128,7 @@ def input_city(message: Message):
         bot.register_next_step_handler(msg, send_menu)
 def send_menu(message: Message):
     user_id, chat_id = get_ids(message)
-    with bot.retrieve_data(chat_id=chat_id, user_id=user_id) as data:
-        name = data.get('name')
+    name = get_data('name', chat_id=chat_id, user_id=user_id)
     bot.send_message(chat_id,
                      f'Привет, {name}! '
                      f'Я - бот, который поможет тебе узнать прогноз погоды'
@@ -152,6 +168,53 @@ def wrong_name(message: Message):
                      text='Кажется, ты отправил не текст. '
                           'Пожалуйста, отправь своё имя в виде текста.')
 
+@bot.callback_query_handler(func=lambda call: True)
+def handle_menu_callback(call):
+    chat_id = call.message.chat.id
+    user_id = call.from_user.id
+    lat, lon = get_data('lat', 'lon', chat_id=chat_id, user_id=user_id)
+    if call.data == 'onetime':
+        onetime_forecast(chat_id, user_id, lat, lon)
+
+def onetime_forecast(chat_id, user_id, lat, lon):
+    forecast = get_forecast(user_id, lat=lat, lon=lon)
+    temp = forecast['current']['temp']
+    wspeed = forecast['current']['wspeed']
+    prec = forecast['current']['prec']
+    precprob = forecast['current']['precprob']
+    cur_text = (f'Погода сейчас:\n'
+                f'Температура: {temp} градусов\n'
+                f'Скорость ветра: {wspeed} м\\с\n'
+                f'Количество осадков: {prec} мм'
+                f'Вероятность осадков в ближайшее время: {precprob}%\n')
+    match temp:
+        case x if 20 < x < 30:
+            cur_text += 'Сегодня тепло! Можно выйти на улицу в лёгкой одежде.'
+        case x if x >= 30:
+            cur_text += 'Сегодня жарко! При выходе на улицу остерегайтесь перегрева.'
+        case x if 7 < x <=20:
+            cur_text += 'Сегодня прохладно!'
+        case x if x <= 7:
+            cur_text += 'Сегодня холодно! Позаботьтесь о том, чтобы не замёрзнуть на улице.'
+    match wspeed:
+        case x if x <= 3.3:
+            cur_text += 'Ветра почти нет.'
+        case x if 3.3 < x <= 7.9:
+            cur_text += 'Умеренный ветер.'
+        case x if 7.9 < x <= 13.8:
+            cur_text += 'Сильный ветер. Соблюдайте осторожность при выходе на улицу.'
+        case x if 13.8 < x < 24:
+            cur_text += 'Очень сильный ветер. Выходите из дома только при крайней необходимости.'
+        case x if x >= 24:
+            cur_text += 'На улице ураган! Крайне не рекомендуется выходить из дома.'
+    match prec:
+        case x if x < 2.5:
+            cur_text += 'Наблюдаются слабые осадки.'
+        case x if 2.5 <= x < 10:
+            cur_text += 'Наблюдаются умеренные осадки'
+        case x if x > 10:
+            cur_text += 'Сильные осадки! Будьте осторожны.'
+    bot.send_message(chat_id=chat_id, text=cur_text)
 
 
 
