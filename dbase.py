@@ -1,9 +1,9 @@
 from peewee import (SqliteDatabase, Model, IntegerField,
                     CharField, ForeignKeyField,
-                    FloatField, DateTimeField)
+                    FloatField, DateTimeField, PrimaryKeyField)
 from config import db_url
 import datetime
-from logger import bot_logger, log_error
+from logger import bot_logger, log_error, log_info
 
 db = SqliteDatabase(db_url)
 
@@ -29,8 +29,13 @@ class WeatherRequest(BaseModel):
     status = IntegerField()
     requested_at = DateTimeField(default=lambda: datetime.datetime.now)
 
+class HelpRequest(BaseModel):
+    id = PrimaryKeyField()
+    user = ForeignKeyField(User, backref='help_requests')
+    message = CharField(null=True)
+
 def create_model():
-    db.create_tables([User, WeatherRequest], safe=True)
+    db.create_tables([User, WeatherRequest, HelpRequest], safe=True)
 
 def create_user(user_id, database=db, username=None, city=None, latitude=None, longitude=None):
     try:
@@ -62,12 +67,11 @@ def update_user_data(user_id: int, datatype: str, data):
     except User.DoesNotExist:
         text = f'Error while updating user data. User does not exist.'
         log_error(bot_logger, user_id, text)
-        return
+        return None
     except Exception as e:
         text = f'Error while updating user data. {e}'
         log_error(bot_logger, user_id, text)
-        return
-
+        return None
 def get_user_data(user_id: int, datatype: str):
     try:
         user = User.get(User.user_id == user_id)
@@ -78,7 +82,7 @@ def get_user_data(user_id: int, datatype: str):
     except Exception as e:
         text = f'Error while getting user data. {e}'
         log_error(bot_logger, user_id, text)
-        return
+        return None
 
 def create_request(user_id, city, status):
     try:
@@ -93,4 +97,14 @@ def create_request(user_id, city, status):
         log_error(bot_logger, user_id, text)
         return
 
+def create_help_request(user_id, message):
+    try:
+        user = User.get(User.user_id == user_id)
+        HelpRequest.create(user = user, message = message)
+        log_info(bot_logger, user_id, f'Новое сообщение для поддержки.')
+
+    except Exception as e:
+        text = f'Error while creating help request in table. {e}'
+        log_error(bot_logger, user_id, text)
+        return
 

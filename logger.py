@@ -13,16 +13,6 @@ def log_info(logger, user_id, info):
     """
     logger.info(f'Пользователь {user_id}. {info}')
 
-def log_state(logger, user_id, state):
-    """
-    Логируем состояние бота
-    :param logger: логгер
-    :param user_id: id пользователя, для которого установлено состояние
-    :param state: установленное состояние бота
-    :return: None
-    """
-    logger.info(f'Пользователь {user_id}. Установлено состояние {state}', extra={'user_id': user_id})
-
 def log_error(logger, user_id, e):
     logger.error(f'Пользователь {user_id}. Ошибка: {e}',
                  extra={'user_id': user_id},

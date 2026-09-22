@@ -5,8 +5,9 @@ from telebot.storage import StateMemoryStorage
 import config
 from telebot.states.sync.middleware import StateMiddleware
 from telebot.states import State, StatesGroup
-from logger import bot_logger, log_state, log_info, log_error
-from dbase import create_model, create_user, create_request, update_user_data, get_user_data
+from logger import bot_logger, log_info, log_error
+from dbase import (create_model, create_user, create_request, update_user_data,
+                   get_user_data, create_help_request)
 from weather_api import get_forecast
 
 state_storage = StateMemoryStorage()
@@ -17,6 +18,7 @@ bot.setup_middleware(StateMiddleware(bot))
 class StatesSetup(StatesGroup):
     awaiting_name = State()
     awaiting_city = State()
+    awaiting_help_message = State()
     user_ready = State()
     confirm_reset = State()
 
@@ -42,6 +44,12 @@ def get_ids(message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
     return user_id, chat_id
+
+def menu_button():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    menu_but = KeyboardButton('/menu')
+    markup.add(menu_but)
+    return markup
 
 def gen_menu_markup():
     markup = InlineKeyboardMarkup()
@@ -78,7 +86,7 @@ def send_welcome(message: Message):
     bot.set_state(user_id=user_id,
                   state=StatesSetup.awaiting_name,
                   chat_id=chat_id)
-    log_state(bot_logger, user_id, 'awaiting_name')
+    log_info(bot_logger, user_id, 'Установлено состояние awaiting_name')
     create_user(user_id)
     log_info(bot_logger, user_id, 'Создана запись о пользователе.')
 
@@ -94,7 +102,7 @@ def input_name(message: Message):
     bot.set_state(user_id=user_id,
                   state=StatesSetup.awaiting_city,
                   chat_id=chat_id)
-    log_state(bot_logger, user_id, 'awaiting_city')
+    log_info(bot_logger, user_id, 'Установлено состояние awaiting_city')
     update_user_data(user_id=user_id, datatype='username', data=name)
     log_info(bot_logger, user_id=user_id, info='Обновлено имя в базе данных.')
     msg = bot.send_message(chat_id=chat_id,
@@ -123,11 +131,8 @@ def input_city(message: Message):
         bot.set_state(user_id=user_id,
                       chat_id=chat_id,
                       state=StatesSetup.user_ready)
-        log_state(bot_logger, user_id, 'user_ready')
-        markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        menu_but = KeyboardButton('/menu')
-        markup.add(menu_but)
-        bot.send_message(chat_id, text=f'Отлично, бот готов к работе!', reply_markup=markup)
+        log_info(bot_logger, user_id, 'Установлено состояние user_ready')
+        bot.send_message(chat_id, text=f'Отлично, бот готов к работе!', reply_markup=menu_button())
 
 @bot.message_handler(state=StatesSetup.user_ready, commands=['menu'])
 def send_menu(message: Message):
@@ -179,6 +184,24 @@ def handle_menu_callback(call):
     lat, lon = get_data('lat', 'lon', chat_id=chat_id, user_id=user_id)
     if call.data == 'onetime':
         onetime_forecast(chat_id, user_id, lat, lon)
+    elif call.data == 'cfg_auto':
+        pass
+    elif call.data == 'help':
+        bot.send_message(chat_id=chat_id, text='Пришлите сообщение для поддержки и мы ответим в этот чат'
+                                               'в ближайшее время.')
+        bot.set_state(user_id=user_id,
+                      chat_id=chat_id,
+                      state=StatesSetup.awaiting_help_message)
+        log_info(bot_logger, user_id, 'Установлено состояние awaiting_help_message')
+
+@bot.message_handler(state=StatesSetup.awaiting_help_message)
+def help_message(message: Message):
+    user_id, chat_id = get_ids(message)
+    text = message.text
+    create_help_request(user_id, text)
+    bot.set_state(user_id=user_id, chat_id=chat_id, state=StatesSetup.user_ready)
+    bot.send_message(chat_id, 'Сообщение поддержке отправлено.', reply_markup=menu_button())
+
 
 def onetime_forecast(chat_id, user_id, lat, lon):
     forecast = get_forecast(user_id, city=get_data('city', user_id=user_id, chat_id=chat_id),
@@ -234,10 +257,7 @@ def onetime_forecast(chat_id, user_id, lat, lon):
                 f'Максимальная скорость ветра: {day[4]} м\\с\n'
                 f'Предполагаемая сумма осадков: {day[5]} мм\n\n')
         daily_text += text
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    menu_but = KeyboardButton('/menu')
-    markup.add(menu_but)
-    bot.send_message(chat_id=chat_id, text=daily_text, reply_markup=markup)
+    bot.send_message(chat_id=chat_id, text=daily_text, reply_markup=menu_button())
 
 
 if __name__ == '__main__':
