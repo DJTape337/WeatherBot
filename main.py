@@ -20,7 +20,7 @@ class StatesSetup(StatesGroup):
     awaiting_city = State()
     awaiting_help_message = State()
     user_ready = State()
-    confirm_reset = State()
+    requested_reset = State()
 
 def get_data(*args, chat_id, user_id):
     if len(args) > 1:
@@ -193,6 +193,36 @@ def handle_menu_callback(call):
                       chat_id=chat_id,
                       state=StatesSetup.awaiting_help_message)
         log_info(bot_logger, user_id, 'Установлено состояние awaiting_help_message')
+    elif call.data == 'reset':
+        bot.set_state(user_id=user_id,
+                      chat_id=chat_id,
+                      state=StatesSetup.requested_reset)
+        log_info(bot_logger, user_id, 'Установлено состояние requested_reset')
+        markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        btn_y = KeyboardButton('Да')
+        btn_n = KeyboardButton('Нет')
+        markup.add(btn_y, btn_n)
+        bot.send_message(chat_id, 'Вы уверены, что хотите сбросить данные пользователя?',
+                         reply_markup=markup)
+
+@bot.message_handler(state=StatesSetup.requested_reset)
+def confirm_reset(message: Message):
+    user_id, chat_id =get_ids(message)
+    text = message.text
+    while True:
+        if text.lower() == 'да':
+            bot.set_state(chat_id=chat_id, user_id=user_id,
+                          state=StatesSetup.awaiting_name)
+            log_info(bot_logger, user_id, 'Подтверждён сброс. Установлено состояние awaiting_name')
+            markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            name = get_data('name', chat_id=chat_id, user_id=user_id)
+            markup.add(KeyboardButton(name))
+            bot.send_message(chat_id, 'Пожалуйста, введите имя:', reply_markup=markup)
+            break
+        elif text.lower() == 'нет':
+            break
+        else:
+            bot.send_message(chat_id, 'Пожалуйста, подтвердите сброс данных пользователя.')
 
 @bot.message_handler(state=StatesSetup.awaiting_help_message)
 def help_message(message: Message):
