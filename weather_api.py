@@ -1,12 +1,13 @@
 import requests
 from logger import bot_logger, log_error, log_info
 from config import base_url
+from dbase import create_request
 
 def transform_date(date: str):
     out = date[-2:] + '-' + date[:2]
     return out
 
-def get_forecast(user_id, lat, lon):
+def get_forecast(user_id, city, lat, lon):
     params = {
         "latitude": lat,  # Ростов-на-Дону
         "longitude": lon,
@@ -21,6 +22,7 @@ def get_forecast(user_id, lat, lon):
     }
     try:
         response = requests.get(url=base_url, params=params, timeout=10)
+        create_request(user_id, city, response.status_code)
         response.raise_for_status()
     except (requests.exceptions.Timeout, requests.exceptions.ConnectTimeout) as e:
         log_error(bot_logger, user_id, e)

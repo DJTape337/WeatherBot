@@ -5,7 +5,7 @@ from telebot.storage import StateMemoryStorage
 import config
 from telebot.states.sync.middleware import StateMiddleware
 from telebot.states import State, StatesGroup
-from logger import bot_logger, log_state, log_info
+from logger import bot_logger, log_state, log_info, log_error
 from dbase import create_model, create_user, create_request, update_user_data, get_user_data
 from weather_api import get_forecast
 
@@ -26,7 +26,7 @@ def get_data(*args, chat_id, user_id):
         with bot.retrieve_data(chat_id=chat_id, user_id=user_id) as data:
             for arg in args:
                 d = data.get(arg)
-                out += tuple(d)
+                out = out + tuple([d])
         return out
     else:
         with bot.retrieve_data(chat_id=chat_id, user_id=user_id) as data:
@@ -74,7 +74,7 @@ def send_welcome(message: Message):
                                                    ' для получения погодных сводок в твоём городе.\n'
                                                    'Я могу присылать сводку о погоде в твоём городе, '
                                                    'а так же автоматически присылать её в установленное тобой время.'
-                                                   'Для продолжения скажи, как я могу тебя называть?')
+                                                   '\nДля продолжения скажи, как я могу тебя называть?')
     bot.set_state(user_id=user_id,
                   state=StatesSetup.awaiting_name,
                   chat_id=chat_id)
@@ -124,17 +124,21 @@ def input_city(message: Message):
                       chat_id=chat_id,
                       state=StatesSetup.user_ready)
         log_state(bot_logger, user_id, 'user_ready')
-        msg = bot.send_message(chat_id, text=f'Отлично, бот готов к работе!')
-        bot.register_next_step_handler(msg, send_menu)
+        markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        menu_but = KeyboardButton('/menu')
+        markup.add(menu_but)
+        bot.send_message(chat_id, text=f'Отлично, бот готов к работе!', reply_markup=markup)
+
+@bot.message_handler(state=StatesSetup.user_ready, commands=['menu'])
 def send_menu(message: Message):
     user_id, chat_id = get_ids(message)
     name = get_data('name', chat_id=chat_id, user_id=user_id)
     bot.send_message(chat_id,
-                     f'Привет, {name}! '
-                     f'Я - бот, который поможет тебе узнать прогноз погоды'
+                     f'Привет, {name}!'
+                     f'\nТы можешь узнать прогноз погоды'
                      f' на неделю, а так же автоматически присылать прогноз'
                      f'погоды каждый день в установленное тобой время.'
-                     f' Если у тебя возникли проблемы с ботом, нажми  кнопку "поддержка"',
+                     f'\nЕсли у тебя возникли проблемы с ботом, нажми  кнопку "поддержка"',
                      reply_markup=gen_menu_markup())
 
 @bot.message_handler(state=StatesSetup.awaiting_name,
@@ -177,7 +181,13 @@ def handle_menu_callback(call):
         onetime_forecast(chat_id, user_id, lat, lon)
 
 def onetime_forecast(chat_id, user_id, lat, lon):
-    forecast = get_forecast(user_id, lat=lat, lon=lon)
+    forecast = get_forecast(user_id, city=get_data('city', user_id=user_id, chat_id=chat_id),
+                            lat=lat, lon=lon)
+    if forecast == 'TimeoutError' or forecast == 'StatusError':
+        bot.send_message(chat_id=chat_id, text='Произошла ошибка при запросе. '
+                                               'Пожалуйста, повторите попытку.')
+        log_error(bot_logger, user_id, forecast)
+        return
     temp = forecast['current']['temp']
     wspeed = forecast['current']['wspeed']
     prec = forecast['current']['prec']
@@ -185,7 +195,7 @@ def onetime_forecast(chat_id, user_id, lat, lon):
     cur_text = (f'Погода сейчас:\n'
                 f'Температура: {temp} градусов\n'
                 f'Скорость ветра: {wspeed} м\\с\n'
-                f'Количество осадков: {prec} мм'
+                f'Количество осадков: {prec} мм\n'
                 f'Вероятность осадков в ближайшее время: {precprob}%\n')
     match temp:
         case x if 20 < x < 30:
@@ -198,7 +208,7 @@ def onetime_forecast(chat_id, user_id, lat, lon):
             cur_text += 'Сегодня холодно! Позаботьтесь о том, чтобы не замёрзнуть на улице.'
     match wspeed:
         case x if x <= 3.3:
-            cur_text += 'Ветра почти нет.'
+            cur_text += ' Ветра почти нет.'
         case x if 3.3 < x <= 7.9:
             cur_text += 'Умеренный ветер.'
         case x if 7.9 < x <= 13.8:
@@ -224,11 +234,10 @@ def onetime_forecast(chat_id, user_id, lat, lon):
                 f'Максимальная скорость ветра: {day[4]} м\\с\n'
                 f'Предполагаемая сумма осадков: {day[5]} мм\n\n')
         daily_text += text
-    markup = ReplyKeyboardMarkup(resize_keyboard= True, one_time_keyboard= True)
-    menu_but = KeyboardButton('Меню')
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    menu_but = KeyboardButton('/menu')
     markup.add(menu_but)
-    bot.send_message(chat_id, daily_text, reply_markup=markup)
-
+    bot.send_message(chat_id=chat_id, text=daily_text, reply_markup=markup)
 
 
 if __name__ == '__main__':

@@ -22,14 +22,11 @@ class User(BaseModel):
     user_id = IntegerField(primary_key=True)
     username = CharField(null=True)
     city = CharField(null=True)
-    latitude = FloatField(null=True)
-    longitude = FloatField(null=True)
 
 class WeatherRequest(BaseModel):
     user = ForeignKeyField(User, backref='requests')
     city = CharField()
-    latitude = FloatField()
-    longitude = FloatField()
+    status = IntegerField()
     requested_at = DateTimeField(default=lambda: datetime.datetime.now)
 
 def create_model():
@@ -83,14 +80,13 @@ def get_user_data(user_id: int, datatype: str):
         log_error(bot_logger, user_id, text)
         return
 
-def create_request(user_id, city, lat, lon):
+def create_request(user_id, city, status):
     try:
         user = User.get(User.user_id == user_id)
         WeatherRequest.create(
             user = user,
             city = city,
-            latitude = lat,
-            longitude = lon
+            status = status
         )
     except Exception as e:
         text = f'Error while creating weather request in table. {e}'
