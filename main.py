@@ -1,3 +1,7 @@
+#TODO: > Сделать настройку автоматики
+#TODO: > Сделать утилиту для поддержки
+#TODO: > Подключить Redis
+
 from telebot import TeleBot, custom_filters
 from telebot.types import (Message, ReplyKeyboardMarkup, InlineKeyboardMarkup,
                            KeyboardButton, InlineKeyboardButton)
