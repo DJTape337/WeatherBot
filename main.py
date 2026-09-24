@@ -5,13 +5,15 @@
 from telebot import TeleBot, custom_filters
 from telebot.types import (Message, ReplyKeyboardMarkup, InlineKeyboardMarkup,
                            KeyboardButton, InlineKeyboardButton)
+# import time
+# from threading import Thread
 from telebot.storage import StateMemoryStorage
 import config
 from telebot.states.sync.middleware import StateMiddleware
 from telebot.states import State, StatesGroup
 from logger import bot_logger, log_info, log_error
 from dbase import (create_model, create_user, create_request, update_user_data,
-                   get_user_data, create_help_request)
+                   get_user_data, create_help_request, User)
 from weather_api import get_forecast
 
 state_storage = StateMemoryStorage()
@@ -91,8 +93,8 @@ def send_welcome(message: Message):
                   state=StatesSetup.awaiting_name,
                   chat_id=chat_id)
     log_info(bot_logger, user_id, 'Установлено состояние awaiting_name')
-    create_user(user_id)
-    log_info(bot_logger, user_id, 'Создана запись о пользователе.')
+    create_user(user_id, chat_id)
+    log_info(bot_logger, user_id, 'Создана запись о пользователе в базе данных.')
 
 
 @bot.message_handler(state=StatesSetup.awaiting_name, content_types=['text'])
@@ -182,32 +184,40 @@ def wrong_name(message: Message):
                           'Пожалуйста, отправь своё имя в виде текста.')
 
 @bot.callback_query_handler(func=lambda call: True)
-def handle_menu_callback(call):
+def handle_callback(call):
     chat_id = call.message.chat.id
     user_id = call.from_user.id
     lat, lon = get_data('lat', 'lon', chat_id=chat_id, user_id=user_id)
-    if call.data == 'onetime':
-        onetime_forecast(chat_id, user_id, lat, lon)
-    elif call.data == 'cfg_auto':
-        pass
-    elif call.data == 'help':
-        bot.send_message(chat_id=chat_id, text='Пришлите сообщение для поддержки и мы ответим в этот чат'
-                                               'в ближайшее время.')
-        bot.set_state(user_id=user_id,
-                      chat_id=chat_id,
-                      state=StatesSetup.awaiting_help_message)
-        log_info(bot_logger, user_id, 'Установлено состояние awaiting_help_message')
-    elif call.data == 'reset':
-        bot.set_state(user_id=user_id,
-                      chat_id=chat_id,
-                      state=StatesSetup.requested_reset)
-        log_info(bot_logger, user_id, 'Установлено состояние requested_reset')
-        markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        btn_y = KeyboardButton('Да')
-        btn_n = KeyboardButton('Нет')
-        markup.add(btn_y, btn_n)
-        bot.send_message(chat_id, 'Вы уверены, что хотите сбросить данные пользователя?',
-                         reply_markup=markup)
+    match call.data:
+        case 'onetime':
+            onetime_forecast(chat_id, user_id, lat, lon)
+        case 'cfg_auto':
+            user = User.get(User.user_id == user_id)
+            markup = InlineKeyboardMarkup()
+            btn_cfg = InlineKeyboardButton('Настроить время уведомлений', callback_data='cfg_time')
+            markup.row(btn_cfg)
+            if user.is_subscribed:
+                btn_del_not = InlineKeyboardButton('Отменить уведомления', callback_data='del_not')
+                markup.row(btn_del_not)
+            bot.send_message(chat_id, 'Выберите действие.', reply_markup=markup)
+        case 'help':
+            bot.send_message(chat_id=chat_id, text='Пришлите сообщение для поддержки и мы ответим в этот чат'
+                                                   'в ближайшее время.')
+            bot.set_state(user_id=user_id,
+                          chat_id=chat_id,
+                          state=StatesSetup.awaiting_help_message)
+            log_info(bot_logger, user_id, 'Установлено состояние awaiting_help_message')
+        elif call.data == 'reset':
+            bot.set_state(user_id=user_id,
+                          chat_id=chat_id,
+                          state=StatesSetup.requested_reset)
+            log_info(bot_logger, user_id, 'Установлено состояние requested_reset')
+            markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            btn_y = KeyboardButton('Да')
+            btn_n = KeyboardButton('Нет')
+            markup.add(btn_y, btn_n)
+            bot.send_message(chat_id, 'Вы уверены, что хотите сбросить данные пользователя?',
+                             reply_markup=markup)
 
 @bot.message_handler(state=StatesSetup.requested_reset)
 def confirm_reset(message: Message):
