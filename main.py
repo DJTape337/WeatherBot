@@ -1,7 +1,8 @@
 #TODO: > Сделать настройку автоматики
 #TODO: > Сделать утилиту для поддержки
 #TODO: > Подключить Redis
-
+import re
+from re import fullmatch
 from telebot import TeleBot, custom_filters
 from telebot.types import (Message, ReplyKeyboardMarkup, InlineKeyboardMarkup,
                            KeyboardButton, InlineKeyboardButton)
@@ -25,6 +26,7 @@ class StatesSetup(StatesGroup):
     awaiting_name = State()
     awaiting_city = State()
     awaiting_help_message = State()
+    configuring_time = State()
     user_ready = State()
     requested_reset = State()
 
@@ -207,7 +209,7 @@ def handle_callback(call):
                           chat_id=chat_id,
                           state=StatesSetup.awaiting_help_message)
             log_info(bot_logger, user_id, 'Установлено состояние awaiting_help_message')
-        elif call.data == 'reset':
+        case 'reset':
             bot.set_state(user_id=user_id,
                           chat_id=chat_id,
                           state=StatesSetup.requested_reset)
@@ -218,6 +220,30 @@ def handle_callback(call):
             markup.add(btn_y, btn_n)
             bot.send_message(chat_id, 'Вы уверены, что хотите сбросить данные пользователя?',
                              reply_markup=markup)
+        case 'cfg_time':
+            bot.set_state(user_id=user_id,
+                          chat_id=chat_id,
+                          state=StatesSetup.configuring_time)
+            log_info(bot_logger, user_id, 'Установлено состояние configuring_time')
+            bot.send_message(chat_id, 'Введите время в формате ЧЧ:ММ')
+
+@bot.message_handler(state=StatesSetup.configuring_time)
+def input_time(message: Message):
+    user_id, chat_id = get_ids(message)
+    text = message.text.strip()
+    pattern = re.compile(r'^(([01]?\d|2[0-3]):([0-5]\d)$)')
+    if not re.fullmatch(pattern, text):
+        bot.send_message(chat_id, 'Пожалуйста, введите время напоминания'
+                                          ' в соответствии с шаблоном ЧЧ:ММ')
+        return
+    update_user_data(user_id,
+                     'is_subscribed', True)
+    update_user_data(user_id, 'subscription_time', text)
+    log_info(bot_logger, user_id, 'Настроены автоматические уведомления.')
+    bot.set_state(user_id=user_id,
+                  chat_id=chat_id,
+                  state=StatesSetup.user_ready)
+
 
 @bot.message_handler(state=StatesSetup.requested_reset)
 def confirm_reset(message: Message):

@@ -62,7 +62,8 @@ def create_user(user_id, chat_id, database=db, username=None, city=None, latitud
 def update_user_data(user_id: int, datatype: str, data):
     try:
         datatype = datatype.lower()
-        fields = ['username', 'city', 'latitude', 'longitude']
+        fields = ['username', 'city', 'user_id', 'chat_id', 'username', 'city',
+                  'is_subscribed', 'subscription_time']
         if not datatype in fields:
             raise FieldNotFoundError('That field does not exist.')
         query = User.update(**{datatype: data}).where(User.user_id == user_id)
