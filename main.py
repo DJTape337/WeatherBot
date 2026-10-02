@@ -1,21 +1,23 @@
 #TODO: > Сделать настройку автоматики
-#TODO: > Сделать утилиту для поддержки
 #TODO: > Подключить Redis
 import re
 from re import fullmatch
+
+import schedule
 from telebot import TeleBot, custom_filters
 from telebot.types import (Message, ReplyKeyboardMarkup, InlineKeyboardMarkup,
                            KeyboardButton, InlineKeyboardButton)
-# import time
-# from threading import Thread
+import time
+from threading import Thread
 from telebot.storage import StateMemoryStorage
 import config
 from telebot.states.sync.middleware import StateMiddleware
 from telebot.states import State, StatesGroup
 from logger import bot_logger, log_info, log_error
 from dbase import (create_model, create_user, create_request, update_user_data,
-                   get_user_data, create_help_request, User)
+                   create_help_request, User)
 from weather_api import get_forecast
+from datetime import datetime
 
 state_storage = StateMemoryStorage()
 bot = TeleBot(config.token, state_storage=state_storage, use_class_middlewares=True)
@@ -329,7 +331,41 @@ def onetime_forecast(chat_id, user_id, lat, lon):
         daily_text += text
     bot.send_message(chat_id=chat_id, text=daily_text, reply_markup=menu_button())
 
+def sheduled_forecast():
+    now = datetime.now().strftime('%H:%M')
+    now_hour = datetime.now().hour
+    if now_hour >= 21 or now_hour < 7:
+        hello = 'Доброй ночи'
+    elif 17 < now_hour < 21:
+        hello = 'Добрый вечер'
+    elif 12 <= now_hour <= 17:
+        hello = 'Добрый день'
+    else:
+        hello = 'Доброе утро'
+    users = User.select().where(
+        (User.is_subscribed == True) &
+        (User.subscriprion_time == now)
+    )
+    for user in users:
+        city = user.city
+        chat_id, user_id = user.chat_id, user.user_id
+        if not city or not city in config.cities_coords:
+            continue
+        lat, lon = config.cities_coords[city]
+        bot.send_message(chat_id, f'{hello}, {user.username}!\n'
+                                  f'Вот твой прогноз погоды:')
+        onetime_forecast(chat_id=chat_id,
+                         user_id=user_id,
+                         lat=lat,
+                         lon=lon)
+
+
+
 
 if __name__ == '__main__':
     create_model()
+    schedule.every(1).minutes.do(sheduled_forecast())
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
     bot.infinity_polling()

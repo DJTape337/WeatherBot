@@ -37,7 +37,7 @@ class HelpRequest(BaseModel):
     id = AutoField(primary_key=True)
     user = ForeignKeyField(User, backref='help_requests')
     message = CharField(null=True)
-    requestet_at = DateTimeField(default=lambda: datetime.datetime.now)
+    requested_at = DateTimeField(default=lambda: datetime.datetime.now)
 
 def create_model():
     db.create_tables([User, WeatherRequest, HelpRequest], safe=True)
