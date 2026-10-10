@@ -25,6 +25,9 @@ class User(BaseModel):
     username = CharField(null=True)
     city = CharField(null=True)
     is_subscribed = BooleanField(default=False)
+    #TODO: > over-determined primary key user
+    # ЕБАНАЯ ХУЙНЯ БЛЯЯЯЯЯДЬ!!!!!!!1
+    # мне не нравится что я пишу. сука.
     subscriprion_time = CharField(null=True)
 
 class WeatherRequest(BaseModel):

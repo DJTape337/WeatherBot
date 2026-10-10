@@ -1,5 +1,3 @@
-#TODO: > Сделать настройку автоматики
-#TODO: > Подключить Redis
 import re
 from re import fullmatch
 
@@ -19,6 +17,7 @@ from dbase import (create_model, create_user, create_request, update_user_data,
 from weather_api import get_forecast
 from datetime import datetime
 
+#TODO: > надо поставить Redis
 state_storage = StateMemoryStorage()
 bot = TeleBot(config.token, state_storage=state_storage, use_class_middlewares=True)
 bot.add_custom_filter(custom_filters.StateFilter(bot))
@@ -31,6 +30,7 @@ class StatesSetup(StatesGroup):
     configuring_time = State()
     user_ready = State()
     requested_reset = State()
+    del_not = State()
 
 def get_data(*args, chat_id, user_id):
     if len(args) > 1:
@@ -82,6 +82,34 @@ def gen_cities_markup():
         formatted = [s[0].upper() + s[1:] for s in pair]
         markup.row(*formatted)
     return markup
+
+def sheduled_forecast():
+    now = datetime.now().strftime('%H:%M')
+    now_hour = datetime.now().hour
+    if now_hour >= 21 or now_hour < 7:
+        hello = 'Доброй ночи'
+    elif 17 < now_hour < 21:
+        hello = 'Добрый вечер'
+    elif 12 <= now_hour <= 17:
+        hello = 'Добрый день'
+    else:
+        hello = 'Доброе утро'
+    users = User.select().where(
+        (User.is_subscribed == True) &
+        (User.subscriprion_time == now)
+    )
+    for user in users:
+        city = user.city
+        chat_id, user_id = user.chat_id, user.user_id
+        if not city or not city in config.cities_coords:
+            continue
+        lat, lon = config.cities_coords[city]
+        bot.send_message(chat_id, f'{hello}, {user.username}!\n'
+                                  f'Вот твой прогноз погоды:')
+        onetime_forecast(chat_id=chat_id,
+                         user_id=user_id,
+                         lat=lat,
+                         lon=lon)
 
 
 @bot.message_handler(commands=['start'])
@@ -197,6 +225,7 @@ def handle_callback(call):
             onetime_forecast(chat_id, user_id, lat, lon)
         case 'cfg_auto':
             user = User.get(User.user_id == user_id)
+            #TODO: > сделать так, чтобы кнопки не работали несколько раз подряд
             markup = InlineKeyboardMarkup()
             btn_cfg = InlineKeyboardButton('Настроить время уведомлений', callback_data='cfg_time')
             markup.row(btn_cfg)
@@ -223,11 +252,39 @@ def handle_callback(call):
             bot.send_message(chat_id, 'Вы уверены, что хотите сбросить данные пользователя?',
                              reply_markup=markup)
         case 'cfg_time':
+            #TODO: >проверить, нужно ли доделать
             bot.set_state(user_id=user_id,
                           chat_id=chat_id,
                           state=StatesSetup.configuring_time)
             log_info(bot_logger, user_id, 'Установлено состояние configuring_time')
             bot.send_message(chat_id, 'Введите время в формате ЧЧ:ММ')
+        case 'del_not':
+            #TODO: > доделать
+            bot.set_state(user_id=user_id, chat_id=chat_id,
+                          state=StatesSetup.del_not)
+            log_info(bot_logger, user_id, 'Установлено состояние del_not')
+            markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            markup.add(KeyboardButton('Да'))
+            markup.add(KeyboardButton('Нет'))
+            bot.send_message(chat_id, 'Вы уверены, что хотите отключить уведомления?',
+                             reply_markup=markup)
+
+@bot.message_handler(state=StatesSetup.del_not)
+def confirm_del_not(message: Message):
+    user_id, chat_id = get_ids(message)
+    if message.text.lower() == 'да':
+        update_user_data(user_id, 'is_subscribed', False)
+        log_info(bot_logger, user_id, 'Установлено состояние user_ready')
+        bot.send_message(chat_id, 'Вы отписались от рассылки!', reply_markup=menu_button())
+    elif message.text.lower() == 'нет':
+        bot.send_message(chat_id, 'Хорошо, подписку оставили.')
+    else:
+        bot.send_message(chat_id, 'Пожалуйста, ответьте "да" или "нет".')
+        return
+    bot.set_state(user_id=user_id,
+                  chat_id=chat_id,
+                  state=StatesSetup.user_ready)
+
 
 @bot.message_handler(state=StatesSetup.configuring_time)
 def input_time(message: Message):
@@ -331,33 +388,7 @@ def onetime_forecast(chat_id, user_id, lat, lon):
         daily_text += text
     bot.send_message(chat_id=chat_id, text=daily_text, reply_markup=menu_button())
 
-def sheduled_forecast():
-    now = datetime.now().strftime('%H:%M')
-    now_hour = datetime.now().hour
-    if now_hour >= 21 or now_hour < 7:
-        hello = 'Доброй ночи'
-    elif 17 < now_hour < 21:
-        hello = 'Добрый вечер'
-    elif 12 <= now_hour <= 17:
-        hello = 'Добрый день'
-    else:
-        hello = 'Доброе утро'
-    users = User.select().where(
-        (User.is_subscribed == True) &
-        (User.subscriprion_time == now)
-    )
-    for user in users:
-        city = user.city
-        chat_id, user_id = user.chat_id, user.user_id
-        if not city or not city in config.cities_coords:
-            continue
-        lat, lon = config.cities_coords[city]
-        bot.send_message(chat_id, f'{hello}, {user.username}!\n'
-                                  f'Вот твой прогноз погоды:')
-        onetime_forecast(chat_id=chat_id,
-                         user_id=user_id,
-                         lat=lat,
-                         lon=lon)
+
 
 
 
