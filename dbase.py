@@ -19,28 +19,25 @@ class BaseModel(Model):
         database = db
 
 class User(BaseModel):
-    register_date = DateTimeField(default=datetime.datetime.now)
-    user_id = IntegerField(primary_key=True)
-    chat_id = IntegerField(primary_key=True)
+    register_date = DateTimeField(default=datetime.datetime.now())
+    user_id = IntegerField(unique=True)
+    chat_id = IntegerField(unique=True)
     username = CharField(null=True)
     city = CharField(null=True)
     is_subscribed = BooleanField(default=False)
-    #TODO: > over-determined primary key user
-    # ЕБАНАЯ ХУЙНЯ БЛЯЯЯЯЯДЬ!!!!!!!1
-    # мне не нравится что я пишу. сука.
-    subscriprion_time = CharField(null=True)
+    subscription_time = CharField(null=True)
 
 class WeatherRequest(BaseModel):
     user = ForeignKeyField(User, backref='requests')
     city = CharField()
     status = IntegerField()
-    requested_at = DateTimeField(default=lambda: datetime.datetime.now)
+    requested_at = DateTimeField(default=datetime.datetime.now())
 
 class HelpRequest(BaseModel):
     id = AutoField(primary_key=True)
     user = ForeignKeyField(User, backref='help_requests')
     message = CharField(null=True)
-    requested_at = DateTimeField(default=lambda: datetime.datetime.now)
+    requested_at = DateTimeField(default=datetime.datetime.now())
 
 def create_model():
     db.create_tables([User, WeatherRequest, HelpRequest], safe=True)
@@ -82,17 +79,7 @@ def update_user_data(user_id: int, datatype: str, data):
         text = f'Error while updating user data. {e}'
         log_error(bot_logger, user_id, text)
         return None
-# def get_user_data(user_id: int, datatype: str):
-#     try:
-#         user = User.get(User.user_id == user_id)
-#         fields = ['username', 'city', 'lat', 'lon']
-#         if datatype not in fields:
-#             raise FieldNotFoundError('That field does not exist.')
-#         return getattr(user, datatype)
-#     except Exception as e:
-#         text = f'Error while getting user data. {e}'
-#         log_error(bot_logger, user_id, text)
-#         return None
+
 
 def create_request(user_id, city, status):
     try:

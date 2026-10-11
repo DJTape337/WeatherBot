@@ -1,12 +1,10 @@
 import re
-from re import fullmatch
-
 import schedule
 from telebot import TeleBot, custom_filters
 from telebot.types import (Message, ReplyKeyboardMarkup, InlineKeyboardMarkup,
                            KeyboardButton, InlineKeyboardButton)
+import threading
 import time
-from threading import Thread
 from telebot.storage import StateMemoryStorage
 import config
 from telebot.states.sync.middleware import StateMiddleware
@@ -96,7 +94,7 @@ def sheduled_forecast():
         hello = 'Доброе утро'
     users = User.select().where(
         (User.is_subscribed == True) &
-        (User.subscriprion_time == now)
+        (User.subscription_time == now)
     )
     for user in users:
         city = user.city
@@ -302,6 +300,7 @@ def input_time(message: Message):
     bot.set_state(user_id=user_id,
                   chat_id=chat_id,
                   state=StatesSetup.user_ready)
+    bot.send_message(chat_id, 'Отлично, уведомления настроили.', reply_markup=menu_button())
 
 
 @bot.message_handler(state=StatesSetup.requested_reset)
@@ -317,9 +316,11 @@ def confirm_reset(message: Message):
             name = get_data('name', chat_id=chat_id, user_id=user_id)
             markup.add(KeyboardButton(name))
             bot.send_message(chat_id, 'Пожалуйста, введите имя:', reply_markup=markup)
-            break
         elif text.lower() == 'нет':
-            break
+            bot.send_message(chat_id, 'Хорошо, сброс отменили.')
+            bot.set_state(user_id=user_id,
+                          chat_id=chat_id,
+                          state=StatesSetup.user_ready)
         else:
             bot.send_message(chat_id, 'Пожалуйста, подтвердите сброс данных пользователя.')
 
@@ -333,7 +334,8 @@ def help_message(message: Message):
 
 
 def onetime_forecast(chat_id, user_id, lat, lon):
-    forecast = get_forecast(user_id, city=get_data('city', user_id=user_id, chat_id=chat_id),
+    user = User.get(User.user_id == user_id)
+    forecast = get_forecast(user_id, city=user.city,
                             lat=lat, lon=lon)
     if forecast == 'TimeoutError' or forecast == 'StatusError':
         bot.send_message(chat_id=chat_id, text='Произошла ошибка при запросе. '
@@ -351,31 +353,31 @@ def onetime_forecast(chat_id, user_id, lat, lon):
                 f'Вероятность осадков в ближайшее время: {precprob}%\n')
     match temp:
         case x if 20 < x < 30:
-            cur_text += 'Сегодня тепло! Можно выйти на улицу в лёгкой одежде.'
+            cur_text += 'Сегодня тепло! Можно выйти на улицу в лёгкой одежде. '
         case x if x >= 30:
-            cur_text += 'Сегодня жарко! При выходе на улицу остерегайтесь перегрева.'
+            cur_text += 'Сегодня жарко! При выходе на улицу остерегайтесь перегрева. '
         case x if 7 < x <=20:
-            cur_text += 'Сегодня прохладно!'
+            cur_text += 'Сегодня прохладно! '
         case x if x <= 7:
-            cur_text += 'Сегодня холодно! Позаботьтесь о том, чтобы не замёрзнуть на улице.'
+            cur_text += 'Сегодня холодно! Позаботьтесь о том, чтобы не замёрзнуть на улице. '
     match wspeed:
         case x if x <= 3.3:
-            cur_text += ' Ветра почти нет.'
+            cur_text += ' Ветра почти нет. '
         case x if 3.3 < x <= 7.9:
-            cur_text += 'Умеренный ветер.'
+            cur_text += 'Умеренный ветер. '
         case x if 7.9 < x <= 13.8:
-            cur_text += 'Сильный ветер. Соблюдайте осторожность при выходе на улицу.'
+            cur_text += 'Сильный ветер. Соблюдайте осторожность при выходе на улицу. '
         case x if 13.8 < x < 24:
-            cur_text += 'Очень сильный ветер. Выходите из дома только при крайней необходимости.'
+            cur_text += 'Очень сильный ветер. Выходите из дома только при крайней необходимости. '
         case x if x >= 24:
-            cur_text += 'На улице ураган! Крайне не рекомендуется выходить из дома.'
+            cur_text += 'На улице ураган! Крайне не рекомендуется выходить из дома. '
     match prec:
         case x if x < 2.5:
-            cur_text += 'Наблюдаются слабые осадки.'
+            cur_text += 'Наблюдаются слабые осадки. '
         case x if 2.5 <= x < 10:
-            cur_text += 'Наблюдаются умеренные осадки'
+            cur_text += 'Наблюдаются умеренные осадки. '
         case x if x > 10:
-            cur_text += 'Сильные осадки! Будьте осторожны.'
+            cur_text += 'Сильные осадки! Будьте осторожны. '
     bot.send_message(chat_id=chat_id, text=cur_text)
     daily_text = 'Прогноз погоды на 7 дней:\n'
     for day in forecast['daily']:
@@ -388,15 +390,17 @@ def onetime_forecast(chat_id, user_id, lat, lon):
         daily_text += text
     bot.send_message(chat_id=chat_id, text=daily_text, reply_markup=menu_button())
 
-
+def run_scheduler():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 
 
 
 if __name__ == '__main__':
     create_model()
-    schedule.every(1).minutes.do(sheduled_forecast())
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+    schedule.every(1).minute.do(sheduled_forecast)
+    sсheduler_tread = threading.Thread(target=run_scheduler, daemon=True)
+    sсheduler_tread.start()
     bot.infinity_polling()
