@@ -15,7 +15,7 @@ from dbase import (create_model, create_user, create_request, update_user_data,
 from weather_api import get_forecast
 from datetime import datetime
 
-#TODO: > надо поставить Redis
+#Для использования в крупных масштабах нужно поставить redis
 state_storage = StateMemoryStorage()
 bot = TeleBot(config.token, state_storage=state_storage, use_class_middlewares=True)
 bot.add_custom_filter(custom_filters.StateFilter(bot))
@@ -113,18 +113,22 @@ def sheduled_forecast():
 @bot.message_handler(commands=['start'])
 def send_welcome(message: Message):
     user_id, chat_id = get_ids(message)
-    log_info(bot_logger, user_id, 'Бот запущен.')
-    bot.send_message(chat_id=chat_id, text='Привет. Я - бот, предназначенный'
-                                                   ' для получения погодных сводок в твоём городе.\n'
-                                                   'Я могу присылать сводку о погоде в твоём городе, '
-                                                   'а так же автоматически присылать её в установленное тобой время.'
-                                                   '\nДля продолжения скажи, как я могу тебя называть?')
-    bot.set_state(user_id=user_id,
-                  state=StatesSetup.awaiting_name,
-                  chat_id=chat_id)
-    log_info(bot_logger, user_id, 'Установлено состояние awaiting_name')
-    create_user(user_id, chat_id)
-    log_info(bot_logger, user_id, 'Создана запись о пользователе в базе данных.')
+    try:
+        user = User.get(User.user_id == user_id)
+        bot.send_message(chat_id, 'Бот уже запущен и готов к работе!')
+    except User.DoesNotExist:
+        log_info(bot_logger, user_id, 'Бот запущен.')
+        bot.send_message(chat_id=chat_id, text='Привет. Я - бот, предназначенный'
+                                                       ' для получения погодных сводок в твоём городе.\n'
+                                                       'Я могу присылать сводку о погоде в твоём городе, '
+                                                       'а так же автоматически присылать её в установленное тобой время.'
+                                                       '\nДля продолжения скажи, как я могу тебя называть?')
+        bot.set_state(user_id=user_id,
+                      state=StatesSetup.awaiting_name,
+                      chat_id=chat_id)
+        log_info(bot_logger, user_id, 'Установлено состояние awaiting_name')
+        create_user(user_id, chat_id)
+        log_info(bot_logger, user_id, 'Создана запись о пользователе в базе данных.')
 
 
 @bot.message_handler(state=StatesSetup.awaiting_name, content_types=['text'])
@@ -223,7 +227,6 @@ def handle_callback(call):
             onetime_forecast(chat_id, user_id, lat, lon)
         case 'cfg_auto':
             user = User.get(User.user_id == user_id)
-            #TODO: > сделать так, чтобы кнопки не работали несколько раз подряд
             markup = InlineKeyboardMarkup()
             btn_cfg = InlineKeyboardButton('Настроить время уведомлений', callback_data='cfg_time')
             markup.row(btn_cfg)
@@ -250,14 +253,12 @@ def handle_callback(call):
             bot.send_message(chat_id, 'Вы уверены, что хотите сбросить данные пользователя?',
                              reply_markup=markup)
         case 'cfg_time':
-            #TODO: >проверить, нужно ли доделать
             bot.set_state(user_id=user_id,
                           chat_id=chat_id,
                           state=StatesSetup.configuring_time)
             log_info(bot_logger, user_id, 'Установлено состояние configuring_time')
             bot.send_message(chat_id, 'Введите время в формате ЧЧ:ММ')
         case 'del_not':
-            #TODO: > доделать
             bot.set_state(user_id=user_id, chat_id=chat_id,
                           state=StatesSetup.del_not)
             log_info(bot_logger, user_id, 'Установлено состояние del_not')
